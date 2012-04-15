@@ -18,6 +18,14 @@ struct ABC3 : public ModulePass
 	static char ID; // Pass identification, replacement for typeid
 	ABC3() : ModulePass(ID) {}
 	
+	struct node_
+	{
+	  Value* a;
+	  node_ *pred;
+	};
+	
+	typedef struct node_ node;
+	
 	//create C and active as global variables
 	struct triplet_{
 	  node a;
@@ -40,78 +48,78 @@ struct ABC3 : public ModulePass
     {
       return true;
     }
-    return false
+    return false;
   }
   
   int prove(node a, node b, int c)
   {
-    triplet t = new triplet();
-    t.a = a; t.b = b; t.red = 2;
-    std::map<triplet,int>::iterator it = C.find(t);
+    triplet *t = new triplet();
+    t->a = a; t->b = b; t->red = 2;
+    std::map<triplet,int>::iterator it = C->find(*t);
     //same or stronger difference was already proven
-    if(it != C.end() && c >= it->second) return 2;
-    t.red = 0;
-    it = C.find(t);
+    if(it != C->end() && c >= it->second) return 2;
+    t->red = 0;
+    it = C->find(*t);
     //same or weaker difference was already disproved
-    if(it != C.end() && c <= it->second) return 0;
-    t.red = 1;
-    it = C.find(t);
+    if(it != C->end() && c <= it->second) return 0;
+    t->red = 1;
+    it = C->find(*t);
     //b is on a cycle that was reduced for same or stronger difference
-    if(it != C.end() && c >= it->second) return 1;
+    if(it != C->end() && c >= it->second) return 1;
     //traversal reached the source vertex, success if a-a<=c
     if(b == a && c >= 0) return 2;
     //if no constraint exists on the value of b, we fail
-    if(!b.predecessor()) return 0;
-    std::map<node,int>::iterator ait = active.find(b);
+    if(b.pred == NULL) return 0;
+    std::map<node,int>::iterator ait = active->find(b);
     //a cycle was encountered
-    if(ait != active.end())
+    if(ait != active->end())
     {
-      if(c > active[b]) return 0; //an amplifying cycle
+      if(c > (*active)[b]) return 0; //an amplifying cycle
       return 1;                 //a "harmless" cycle
     } 
     int ret;
-    active[b] = c;
+    (*active)[b] = c;
     if(b.phiNode())
     {
       ret = 2;
-      for(node itt = b.pred(); itt!=NULL; itt->next())
+      for(node *itt = b.pred; itt!=NULL; itt->next())
       {
-        int res = prove(a,itt,c-weight(u,b));
+        int res = prove(a,itt,c-weight(itt,b));
         ret = res < ret ? res : ret;
       }
       if(ret == 0)
       {
-        t.red = 0;
-        it = C.find(t);
-        if(it == C.end()) C[t] = c;
-        else if(c > it->second) C[t] = c;
+        t->red = 0;
+        it = C->find(*t);
+        if(it == C->end()) (*C)[*t] = c;
+        else if(c > it->second) (*C)[*t] = c;
       }
       else if(ret == 1)
       {
-        t.red = 0;
-        it = C.find(t);
-        if(it == C.end() || (it != C.end() && c < it->second))
+        t->red = 0;
+        it = C->find(*t);
+        if(it == C->end() || (it != C->end() && c < it->second))
         {
-          t.red = 1;
-          it = C.find(t);
-          if(it == C.end()) C[t] = c;
-          else if(c < it->second) C[t] = c;
+          t->red = 1;
+          it = C->find(*t);
+          if(it == C->end()) (*C)[*t] = c;
+          else if(c < it->second) (*C)[*t] = c;
         }
       }
       else if(ret == 2)
       {
-        t.red = 0;
-        it = C.find(t);
-        if(it == C.end() || (it != C.end() && c < it->second))
+        t->red = 0;
+        it = C->find(*t);
+        if(it == C->end() || (it != C->end() && c < it->second))
         {
-          t.red = 1;
-          it = C.find(t);
-          if(it == C.end() || (it != C.end() && c > it->second))
+          t->red = 1;
+          it = C->find(*t);
+          if(it == C->end() || (it != C->end() && c > it->second))
           {
-            t.red = 2;
-            it = C.find(t);
-            if(it == C.end()) C[t] = c;
-            else if(c < it->second) C[t] = c;
+            t->red = 2;
+            it = C->find(*t);
+            if(it == C->end()) (*C)[*t] = c;
+            else if(c < it->second) (*C)[*t] = c;
           }
         }
       }
@@ -119,49 +127,49 @@ struct ABC3 : public ModulePass
     else
     {
       ret = 0;
-      for(node itt = b.pred(); itt!=NULL; itt->next())
+      for(node *itt = b.pred; itt!=NULL; itt->next())
       {
-        int res = prove(a,itt,c-weight(u,b));
+        int res = prove(a,itt,c-weight(itt,b));
         ret = res > ret ? res : ret;
       }
       if(ret == 2)
       {
-        t.red = 2;
-        it = C.find(t);
-        if(it == C.end()) C[t] = c;
-        else if(c < it->second) C[t] = c;
+        t->red = 2;
+        it = C->find(*t);
+        if(it == C->end()) (*C)[*t] = c;
+        else if(c < it->second) (*C)[*t] = c;
       }
       else if(ret == 1)
       {
-        t.red = 2;
-        it = C.find(t);
-        if(it == C.end() || (it != C.end() && c > it->second))
+        t->red = 2;
+        it = C->find(*t);
+        if(it == C->end() || (it != C->end() && c > it->second))
         {
-          t.red = 1;
-          it = C.find(t);
-          if(it == C.end()) C[t] = c;
-          else if(c < it->second) C[t] = c;
+          t->red = 1;
+          it = C->find(*t);
+          if(it == C->end()) (*C)[*t] = c;
+          else if(c < it->second) (*C)[*t] = c;
         }
       }
       else if(ret == 0)
       {
-        t.red = 2;
-        it = C.find(t);
-        if(it == C.end() || (it != C.end() && c > it->second))
+        t->red = 2;
+        it = C->find(*t);
+        if(it == C->end() || (it != C->end() && c > it->second))
         {
-          t.red = 1;
-          it = C.find(t);
-          if(it == C.end() || (it != C.end() && c > it->second))
+          t->red = 1;
+          it = C->find(*t);
+          if(it == C->end() || (it != C->end() && c > it->second))
           {
-            t.red = 0;
-            it = C.find(t);
-            if(it == C.end()) C[t] = c;
-            else if(c > it->second) C[t] = c;
+            t->red = 0;
+            it = C->find(*t);
+            if(it == C->end()) (*C)[*t] = c;
+            else if(c > it->second) (*C)[*t] = c;
           }
         }
       }
     }
-    active.erase(b);
+    active->erase(b);
     return ret;
   }
 
