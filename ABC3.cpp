@@ -18,31 +18,51 @@ struct ABC3 : public ModulePass
 	static char ID; // Pass identification, replacement for typeid
 	ABC3() : ModulePass(ID) {}
 	
-	struct node_
-	{
-	  Value* a;
-	  node_ *pred;
+	struct ABCDNode_{
+		llvm::Value *value;
+		int length; // 0 => not an array length node.
+		std::map<struct ABCDNode_* , int> inList;
+		std::map<struct ABCDNode_* , int > outList;
+		int distance;
+		bool isPhi;
+		ABCDNode_ *predecessor;
+		int name;
+		
+		bool operator<(const ABCDNode_& x)const{
+      if(this->value < x.value) return true;
+      return false;
+    }
 	};
 	
-	typedef struct node_ node;
+	typedef struct ABCDNode_ ABCDNode;
+	
+  typedef struct{
+		std::map<llvm::Value*, ABCDNode* > arrayLengthList;
+		std::map<llvm::Value*, ABCDNode* > variableList;
+	}ABCDGraph;
 	
 	//create C and active as global variables
 	struct triplet_{
-	  node a;
-	  node b;
+	  ABCDNode a;
+	  ABCDNode b;
 	  int red;
-	};
-	
+	  
+	  bool operator<(const triplet_& x)const{
+      if(this->a < x.a || this->b < x.b || this->red < x.red) return true;
+      return false;
+    }
+  };
+
 	typedef struct triplet_ triplet;
 	
 	std::map<triplet,int> *C; 
-	std::map<node,int> *active;
+	std::map<ABCDNode,int> *active;
 	
-  bool demandProve(Graph G, index t)
+  bool demandProve(ABCDGraph G, ABCDNode a, ABCDNode b, int c)
   {
     //initialize C and active
     C = new std::map<triplet,int>();
-    active = new std::map<node,int>();
+    active = new std::map<ABCDNode,int>();
     
     if(prove(a,b,c))
     {
@@ -51,7 +71,7 @@ struct ABC3 : public ModulePass
     return false;
   }
   
-  int prove(node a, node b, int c)
+  int prove(ABCDNode a, ABCDNode b, int c)
   {
     triplet *t = new triplet();
     t->a = a; t->b = b; t->red = 2;
@@ -67,10 +87,10 @@ struct ABC3 : public ModulePass
     //b is on a cycle that was reduced for same or stronger difference
     if(it != C->end() && c >= it->second) return 1;
     //traversal reached the source vertex, success if a-a<=c
-    if(b == a && c >= 0) return 2;
+    if(b.value == a.value && c >= 0) return 2;
     //if no constraint exists on the value of b, we fail
-    if(b.pred == NULL) return 0;
-    std::map<node,int>::iterator ait = active->find(b);
+    if(b.inList.empty()) return 0;
+    std::map<ABCDNode,int>::iterator ait = active->find(b);
     //a cycle was encountered
     if(ait != active->end())
     {
@@ -79,12 +99,13 @@ struct ABC3 : public ModulePass
     } 
     int ret;
     (*active)[b] = c;
-    if(b.phiNode())
+    std::map<struct ABCDNode_* , int>::iterator itt;
+    if(b.isPhi)
     {
-      ret = 2;
-      for(node *itt = b.pred; itt!=NULL; itt->next())
+      ret = 2; 
+      for(itt = (b.inList).begin(); itt != b.inList.end(); itt++)
       {
-        int res = prove(a,itt,c-weight(itt,b));
+        int res = prove(a,*(*itt).first,c-(*itt).second);
         ret = res < ret ? res : ret;
       }
       if(ret == 0)
@@ -127,9 +148,9 @@ struct ABC3 : public ModulePass
     else
     {
       ret = 0;
-      for(node *itt = b.pred; itt!=NULL; itt->next())
+      for(itt = b.inList.begin(); itt != b.inList.end(); itt++)
       {
-        int res = prove(a,itt,c-weight(itt,b));
+        int res = prove(a,*(*itt).first,c-(*itt).second);
         ret = res > ret ? res : ret;
       }
       if(ret == 2)
